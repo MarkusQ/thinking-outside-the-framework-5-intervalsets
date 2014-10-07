@@ -1,0 +1,120 @@
+class Range
+    def to_interval_set
+        IntervalSet.new(first,last)
+    end
+    def |(other)
+        to_interval_set | other.to_interval_set
+    end
+    def &(other)
+        to_interval_set & other.to_interval_set
+    end
+    def -@
+        -to_interval_set
+    end
+    def -(other)
+        to_interval_set - other.to_interval_set
+    end
+    def +(other)
+        to_interval_set + other.to_interval_set
+    end
+    def ^(other)
+        to_interval_set ^ other.to_interval_set
+    end
+end
+
+class IntervalSet
+    include Enumerable
+    attr_reader :neg_inf,:inflections
+    Infinity = 1.0/0.0
+    def initialize(*inflections,neg_inf: false)
+        @neg_inf = neg_inf
+        @inflections = inflections
+    end
+    def to_interval_set
+        self
+    end
+    def include?(probe)
+        n = inflections.length
+        (0..n).bsearch { |i| i == n || inflections[i] > probe }.even? == neg_inf
+    end
+    def -@
+        self.class.new(*inflections,neg_inf:!neg_inf)
+    end
+    def &(other)
+        intersection(other)
+    end
+    def |(other)
+        union(other)
+    end
+    def -(other)
+        intersection(-other)
+    end
+    def +(other)
+        union(-other)
+    end
+    def ^(other)
+        meld(1..1,self,other)
+    end
+    def trivial?
+        inflections.empty?
+    end
+    def empty?
+        trivial? && !neg_inf
+    end
+    def intersection(*sets)
+        n = sets.length+1
+        meld(n..n,self,*sets)
+    end
+    def union(*sets)
+        n = sets.length+1
+        meld(1..n,self,*sets)
+    end
+    def meld(ok,*sets)
+        # The magic goes here...
+        #   :
+        #   :
+        self.class.new(*_inflections,neg_inf:_neg_inf)
+    end
+    def range_bound(i)
+        n = inflections.length
+        if neg_inf
+            i==0 ? -Infinity : (i<=n) ? inflections[i-1] : Infinity
+        else
+                               (i< n) ? inflections[i]   : Infinity
+        end
+    end
+    def each_range
+        return to_enum(:each_range) unless block_given?
+        n = inflections.length + (neg_inf ? 1 : 0) + 1
+        (0...(n/2)).each { |i| yield range_bound(2*i)..range_bound(2*i+1) }
+    end
+    def each
+        return to_enum(:eacg) unless block_given?
+        each_range { |r| r.each { |x| yield x }}
+    end
+    def step(s)
+        return to_enum(:step,s) unless block_given?
+        each_range { |r| r.step(s) { |x| yield x }}
+    end
+    def to_s
+        "{"+each_range.map { |r| r.to_s.gsub(/-?Infinity/,'') }*", "+"}"
+    end
+    alias inspect to_s
+end
+
+def assert(b)
+    fail unless b
+end
+
+x = -(5..15)
+y = IntervalSet.new(10)
+
+assert x.to_s == "{..5, 15..}"
+assert (-x).to_s == "{5..15}"
+assert x.include?(-10)
+assert x.include?(0)
+assert !x.include?(10)
+assert x.include?(20)
+assert y.to_s == "{10..}"
+assert (x | y).to_s == "{..5, 10..}"
+assert (x & y).to_s == "{15..}"
